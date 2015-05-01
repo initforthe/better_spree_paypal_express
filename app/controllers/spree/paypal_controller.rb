@@ -177,11 +177,5 @@ module Spree
     def address_required?
       payment_method.preferred_solution.eql?('Sole')
     end
-
-    def split_tax_adjustments(order)
-      @split_tax_adjustments ||= order.all_adjustments.additional.tax.partition do |a|
-        a.amount > 0
-      end
-    end
   end
 end
