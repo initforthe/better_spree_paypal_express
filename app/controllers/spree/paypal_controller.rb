@@ -5,21 +5,23 @@ module Spree
     def express
       order = current_order || raise(ActiveRecord::RecordNotFound)
       items = order.line_items.map(&method(:line_item))
-
-      tax_adjustments = order.all_adjustments.tax.additional
-      shipping_adjustments = order.all_adjustments.shipping
-
-      order.all_adjustments.eligible.each do |adjustment|
-        next if (tax_adjustments + shipping_adjustments).include?(adjustment)
-        items << {
-          :Name => adjustment.label,
-          :Quantity => 1,
-          :Amount => {
-            :currencyID => order.currency,
-            :value => adjustment.amount
-          }
-        }
-      end
+      #** tax included in price this not needed for our use case
+      # we remove taxes refunds (negative amounts) from taxes
+      # because paypal doesn't accept negative taxes
+      # tax_adjustments, negative_tax_adjustments = split_tax_adjustments(order)
+      # shipping_adjustments = order.all_adjustments.shipping
+      #
+      # order.all_adjustments.eligible.each do |adjustment|
+      #   next if (tax_adjustments + shipping_adjustments).include?(adjustment)
+      #   items << {
+      #     :Name => adjustment.label,
+      #     :Quantity => 1,
+      #     :Amount => {
+      #       :currencyID => order.currency,
+      #       :value => adjustment.amount
+      #     }
+      #   }
+      # end
 
       # Because PayPal doesn't accept $0 items at all.
       # See #10
@@ -143,7 +145,7 @@ module Spree
           },
           :TaxTotal => {
             :currencyID => current_order.currency,
-            :value => current_order.additional_tax_total
+            :value => 0
           },
           :ShipToAddress => address_options,
           :PaymentDetailsItem => items,
@@ -174,6 +176,12 @@ module Spree
 
     def address_required?
       payment_method.preferred_solution.eql?('Sole')
+    end
+
+    def split_tax_adjustments(order)
+      @split_tax_adjustments ||= order.all_adjustments.additional.tax.partition do |a|
+        a.amount > 0
+      end
     end
   end
 end
